@@ -41,6 +41,17 @@ begin:
 
     sti                 ; Enable interrupts
 
+    mov ah, 2
+    mov al, 1
+    mov ch, 0
+    mov cl, 2
+    mov dh, 0
+    mov bx, buffer
+    int 0x13
+    jc error
+
+    mov si, buffer
+    call print
 
     mov word [ss:0x00], handle_interrupt_zero  
     mov word [ss:0x02], 0x7c0                  
@@ -58,6 +69,10 @@ begin:
 
     jmp $               ; Infinite loop
 
+error:
+    mov si, error_message
+    call print 
+    jmp $
 
 print:
 .loop:
@@ -76,6 +91,9 @@ print_char:
 
 
 message: db 'Booting OS', 0                  ; Null-terminated boot message
-interrupt_two_message: db 'Int two', 0       ; Null-terminated message for interrupt 2
+interrupt_two_message: db 'INT TWO | ', 0       ; Null-terminated message for interrupt 2
+error_message: db ' !Error Occured', 0
 times 510-($ - $$) db 0                      ; Fill remaining space in boot sector
 dw 0xAA55                                     ; Boot signature 55AA
+
+buffer: 
