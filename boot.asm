@@ -1,44 +1,81 @@
 ORG 0
-BITS 16 ;using 16 bit architecture
+BITS 16  ; Specify 16-bit architecture
 
 _start:
-    jmp short start
-    nop
+    jmp short start   ; Jump over the BIOS Parameter Block
+    nop           
 
-times 33 db 0 ;creates 33 bytes for BIOS Parameter Block by filling null bytes
+times 33 db 0         ; BIOS Parameter Block: 33 bytes of zeros
+
 start:
-    jmp 0x7c0:begin
+    jmp 0x7c0:begin    ; Jump to the beginning of our bootloader code
+
+
+handle_interrupt_zero:
+    mov ah, 0eh       
+    mov al, 'C'        
+    int 0x10           
+    iret               
+
+handle_interrupt_one:
+    mov ah, 0eh        
+    mov al, 'V'        
+    int 0x10           
+    iret               
+
+handle_interrupt_two:
+    mov si, interrupt_two_message  
+    call print         ; Call the print subroutine to display the message
+    iret               
 
 begin:
-    cli ;   Clear interrupts
-    mov ax, 0x7c0
-    mov ds, ax
-    mov es, ax 
-    sti ;   Enables interrupts
-    mov ax, 0x00
-    mov ss, ax
-    mov sp, 0x7c00
-    mov si, message ;   Mov addr of message label in si reg
-    call print
-    jmp $
+    cli                
+    
+    ; Set up segment registers
+    mov ax, 0x7c0       
+    mov ds, ax          
+    mov es, ax          
+    mov ax, 0x00        
+    mov ss, ax          
+    mov sp, 0x7c00      
+
+    sti                 ; Enable interrupts
+
+
+    mov word [ss:0x00], handle_interrupt_zero  
+    mov word [ss:0x02], 0x7c0                  
+
+    mov word [ss:0x04], handle_interrupt_one   
+    mov word [ss:0x06], 0x7c0                  
+    mov word [ss:0x08], handle_interrupt_two   ; Entry for interrupt 2 (0x02)
+    mov word [ss:0x0A], 0x7c0                  ; Segment address of ISR
+
+    int 2               ; Trigger interrupt 2
+
+    ; Display boot message
+    mov si, message     
+    call print          
+
+    jmp $               ; Infinite loop
 
 
 print:
 .loop:
-    lodsb
-    cmp al,0
-    je .done
-    call print_char 
-    jmp .loop
+    lodsb               
+    cmp al, 0           
+    je .done           
+    call print_char     
+    jmp .loop           
 .done:
-    ret
+    ret                 
 
 print_char:
-    mov ah, 0eh
-    int 0x10
-    ret
+    mov ah, 0eh         
+    int 0x10            
+    ret                 
 
-message: db 'Booting OS' , 0
 
-times 510-($ - $$) db 0
-dw 0xAA55 ; Boot signuature 55AA
+message: db 'Booting OS', 0                  ; Null-terminated boot message
+interrupt_two_message: db 'Int two', 0       ; Null-terminated message for interrupt 2
+times 510-($ - $$) db 0                      ; Fill remaining space in boot sector
+dw 0xAA55                                     ; Boot signature 55AA
